@@ -32,3 +32,7 @@ Route::get('gx/kirim/sync', [App\Http\Controllers\Gx\KirimController::class, 'sy
 Route::get('gx/kirim/email/delete/{email}', [App\Http\Controllers\Gx\KirimController::class,'destroy'])->name('gx.kirim.email.delete');
 Route::get('gx/kirim/contacts', [App\Http\Controllers\Gx\KirimController::class,'getKirimContacts'])->name('gx.getKirimContacts');
 /* GX -end */
+
+/* Userback */
+Route::post('userback/webhook', [App\Http\Controllers\Userback\WebhookController::class, 'receive'])->name('userback.webhook');
+/* Userback -end */
