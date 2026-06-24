@@ -2,7 +2,7 @@
 
 namespace App\Service\Gx;
 
-class kirimService implements GxInterface
+class KirimService implements GxInterface
 {
 
     public function getKirimList()

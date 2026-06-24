@@ -4,7 +4,7 @@ namespace App\Console\Commands\Gx;
 
 use Illuminate\Console\Command;
 use App\Models\Gx\Kirim;
-use App\Service\Gx\kirimService;
+use App\Service\Gx\KirimService;
 
 use Session;
 
@@ -29,7 +29,7 @@ class KirimSync extends Command
      *
      * @return void
      */
-    public function __construct(kirimService $kirim)
+    public function __construct(KirimService $kirim)
     {
         parent::__construct();
         $this->kirim = $kirim;

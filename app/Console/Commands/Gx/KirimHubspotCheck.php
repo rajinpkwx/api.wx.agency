@@ -3,7 +3,7 @@
 namespace App\Console\Commands\Gx;
 
 use Illuminate\Console\Command;
-use App\Service\Gx\kirimService;
+use App\Service\Gx\KirimService;
 use Session;
 
 
@@ -38,7 +38,7 @@ class KirimHubspotCheck extends Command
      *
      * @return int
      */
-    public function handle(kirimService $kirim)
+    public function handle(KirimService $kirim)
     {
 
         $bar = $this->output->createProgressBar($kirim->getKirimListCount());

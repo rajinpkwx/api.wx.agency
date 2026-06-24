@@ -14,9 +14,6 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/', function () {
-    $price = 85.17;
-    $converted=number_format(($price),2,',', '.');
-    dd($converted);
     return view('welcome');
 });
 

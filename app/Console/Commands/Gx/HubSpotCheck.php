@@ -4,7 +4,7 @@ namespace App\Console\Commands\Gx;
 
 use Illuminate\Console\Command;
 use App\Models\Gx\Kirim;
-use App\Service\Gx\kirimService;
+use App\Service\Gx\KirimService;
 
 
 class HubSpotCheck extends Command
@@ -38,7 +38,7 @@ class HubSpotCheck extends Command
      *
      * @return int
      */
-    public function handle(kirimService $kirim)
+    public function handle(KirimService $kirim)
     {
 
         $kirimEmails = Kirim::all();

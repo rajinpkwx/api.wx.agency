@@ -5,7 +5,7 @@ namespace app\Http\Controllers\Gx;
 use app\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use app\Models\Gx\Kirim;
-use app\Service\Gx\kirimService;
+use App\Service\Gx\KirimService;
 
 use Artisan;
 use Session;
@@ -17,7 +17,7 @@ class KirimController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function index(kirimService $kirim)
+    public function index(KirimService $kirim)
     {
         $contacts = Kirim::all();
         return view('Gx.Kirim.list',compact('contacts'));
@@ -97,7 +97,7 @@ class KirimController extends Controller
      * @param  int  $email
      * @return \Illuminate\Http\Response
      */
-    public function destroy(kirimService $kirim ,$email)
+    public function destroy(KirimService $kirim ,$email)
     {
 
         $result = $kirim->deleteEmail($email);
