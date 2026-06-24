@@ -192,7 +192,7 @@ class WebhookController extends Controller
         ]));
 
         $properties = [
-            'hs_task_subject'  => $record->description,
+            'hs_task_subject'  => '[User Feedback (Website)] ' . $record->description,
             'hs_task_body'     => $body,
             'hs_task_status'   => 'NOT_STARTED',
             'hs_task_priority' => $this->mapPriority($record->priority ?? ''),
