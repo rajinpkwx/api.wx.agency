@@ -32,4 +32,5 @@ Route::get('gx/kirim/contacts', [App\Http\Controllers\Gx\KirimController::class,
 
 /* Userback */
 Route::post('userback/webhook', [App\Http\Controllers\Userback\WebhookController::class, 'receive'])->name('userback.webhook');
+Route::get('userback/test-push/{id}', [App\Http\Controllers\Userback\WebhookController::class, 'testPush'])->name('userback.test-push');
 /* Userback -end */
