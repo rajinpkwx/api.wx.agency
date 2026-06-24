@@ -22,6 +22,7 @@ class UserbackWebhook extends Model
         'screenshot_url',
         'share_url',
         'raw_payload',
+        'raw',
         'pushed_to_hubspot',
         'hubspot_pushed_at',
     ];

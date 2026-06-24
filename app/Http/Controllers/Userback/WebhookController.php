@@ -31,7 +31,8 @@ class WebhookController extends Controller
 
     public function receive(Request $request)
     {
-        $payload = $request->all();
+        $rawJson = $request->getContent();
+        $payload = json_decode($rawJson, true) ?? $request->all();
         $data    = $payload['data'] ?? [];
         $email   = $data['email'] ?? null;
 
@@ -40,36 +41,40 @@ class WebhookController extends Controller
         }
 
         // Prevent duplicate if Userback retries
-        $existing = UserbackWebhook::where('userback_id', $data['id'])->first();
-        if ($existing) {
+        if (UserbackWebhook::where('userback_id', $data['id'])->exists()) {
             return response()->json(['status' => true, 'message' => 'Already received']);
         }
 
-        // Save immediately — return 200 to Userback regardless of HubSpot result
-        $record = UserbackWebhook::create([
-            'userback_id'       => $data['id'],
-            'action'            => $payload['action'] ?? '',
-            'type'              => $payload['type'] ?? '',
-            'project'           => $data['project'] ?? null,
-            'feedback_type'     => $data['feedback_type'] ?? null,
-            'email'             => $email,
-            'name'              => $data['name'] ?? null,
-            'page'              => $data['page'] ?? null,
-            'priority'          => $data['priority'] ?? null,
-            'browser'           => $data['browser'] ?? null,
-            'location'          => $data['location'] ?? null,
-            'description'       => $data['description'] ?? null,
-            'screenshot_url'    => $data['screenshot'][0]['url'] ?? null,
-            'share_url'         => $payload['url'] ?? null,
-            'raw_payload'       => $payload,
-            'pushed_to_hubspot' => false,
-        ]);
+        try {
+            $record = UserbackWebhook::create([
+                'userback_id'       => (string) $data['id'],
+                'action'            => $payload['action'] ?? '',
+                'type'              => $payload['type'] ?? '',
+                'project'           => $data['project'] ?? null,
+                'feedback_type'     => $data['feedback_type'] ?? null,
+                'email'             => $email,
+                'name'              => $data['name'] ?? null,
+                'page'              => $data['page'] ?? null,
+                'priority'          => $data['priority'] ?? null,
+                'browser'           => $data['browser'] ?? null,
+                'location'          => $data['location'] ?? null,
+                'description'       => $data['description'] ?? null,
+                'screenshot_url'    => $data['screenshot'][0]['url'] ?? null,
+                'share_url'         => $payload['url'] ?? null,
+                'raw_payload'       => $payload,
+                'raw'               => $rawJson,
+                'pushed_to_hubspot' => false,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Userback DB save failed: ' . $e->getMessage(), ['payload' => $rawJson]);
+            return response()->json(['status' => false, 'message' => 'Failed to save'], 500);
+        }
 
-        // Push to HubSpot after saving — failure won't affect 200 response
+        // Push to HubSpot — failure won't affect 200 response
         try {
             $this->pushToHubspot($record);
         } catch (\Exception $e) {
-            // Record stays with pushed_to_hubspot=false for manual retry
+            \Log::error('Userback HubSpot push failed: ' . $e->getMessage(), ['id' => $record->id]);
         }
 
         return response()->json(['status' => true, 'message' => 'Received']);

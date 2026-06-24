@@ -41,6 +41,16 @@ class RegisterController extends Controller
         $this->middleware('guest');
     }
 
+    public function showRegistrationForm()
+    {
+        return redirect()->route('login');
+    }
+
+    public function register(\Illuminate\Http\Request $request)
+    {
+        abort(403, 'Registration is disabled.');
+    }
+
     /**
      * Get a validator for an incoming registration request.
      *
