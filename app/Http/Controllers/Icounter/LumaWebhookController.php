@@ -18,7 +18,6 @@ class LumaWebhookController extends Controller
     public function receive(Request $request)
     {
         $rawBody = $request->getContent();
-        $payload = json_decode($rawBody, true) ?? [];
 
         $signatureValid = $this->verifySignature($request, $rawBody);
 
@@ -27,11 +26,12 @@ class LumaWebhookController extends Controller
                 'ip' => $request->ip(),
             ]);
 
-            // Still log it for audit purposes, but reject processing.
-            $this->storeRaw($request, $rawBody, $payload, $signatureValid);
-
+            // Do not store — an invalid signature means this wasn't a
+            // genuine Luma delivery, no point logging junk/replay traffic.
             return response()->json(['status' => false, 'message' => 'Invalid signature'], 401);
         }
+
+        $payload = json_decode($rawBody, true) ?? [];
 
         $record = $this->storeRaw($request, $rawBody, $payload, $signatureValid);
 
@@ -39,9 +39,11 @@ class LumaWebhookController extends Controller
     }
 
     /**
-     * Verify Luma's webhook signature.
-     * Returns true/false when a secret is configured, null when signature
-     * checking is not configured (so it doesn't hard-block early testing).
+     * Luma signs webhooks the Svix way: headers svix-id, svix-timestamp,
+     * svix-signature; signed content is "{id}.{timestamp}.{body}"; secret
+     * is base64 after stripping the "whsec_" prefix.
+     * Returns true/false when a secret is configured, null when no secret
+     * is configured yet (unblocked for initial setup, still fully logged).
      */
     private function verifySignature(Request $request, string $rawBody): ?bool
     {
@@ -51,16 +53,26 @@ class LumaWebhookController extends Controller
             return null;
         }
 
-        $headerName = config('icounter.luma.signature_header', 'X-Luma-Signature');
-        $signature  = $request->header($headerName);
+        $svixId        = $request->header('svix-id');
+        $svixTimestamp = $request->header('svix-timestamp');
+        $svixSignature = $request->header('svix-signature');
 
-        if (!$signature) {
+        if (!$svixId || !$svixTimestamp || !$svixSignature) {
             return false;
         }
 
-        $expected = hash_hmac('sha256', $rawBody, $secret);
+        $secretKey = base64_decode(preg_replace('/^whsec_/', '', $secret));
+        $signedContent = "{$svixId}.{$svixTimestamp}.{$rawBody}";
+        $expected = base64_encode(hash_hmac('sha256', $signedContent, $secretKey, true));
 
-        return hash_equals($expected, $signature);
+        foreach (explode(' ', $svixSignature) as $part) {
+            [$version, $sig] = array_pad(explode(',', $part, 2), 2, null);
+            if ($version === 'v1' && $sig && hash_equals($expected, $sig)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

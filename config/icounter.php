@@ -12,8 +12,9 @@ return [
 
     'luma' => [
         'api_key'        => env('ICOUNTER_LUMA_API_KEY'),
+        // Luma has no header/HMAC signing for webhooks, so the secret is
+        // embedded in the webhook URL path instead (see routes/web.php).
         'webhook_secret' => env('ICOUNTER_LUMA_WEBHOOK_SECRET'),
-        'signature_header' => env('ICOUNTER_LUMA_SIGNATURE_HEADER', 'X-Luma-Signature'),
     ],
 
     'hubspot' => [
