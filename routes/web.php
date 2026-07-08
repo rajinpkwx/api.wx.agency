@@ -34,3 +34,7 @@ Route::get('gx/kirim/contacts', [App\Http\Controllers\Gx\KirimController::class,
 Route::post('userback/webhook', [App\Http\Controllers\Userback\WebhookController::class, 'receive'])->name('userback.webhook');
 Route::get('userback/test-push/{id}', [App\Http\Controllers\Userback\WebhookController::class, 'testPush'])->name('userback.test-push');
 /* Userback -end */
+
+/* Icounter (Luma -> HubSpot) */
+Route::post('icounter/luma/webhook', [App\Http\Controllers\Icounter\LumaWebhookController::class, 'receive'])->name('icounter.luma.webhook');
+/* Icounter -end */

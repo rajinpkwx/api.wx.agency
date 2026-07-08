@@ -13,5 +13,6 @@ class VerifyCsrfToken extends Middleware
      */
     protected $except = [
         'userback/webhook',
+        'icounter/luma/webhook',
     ];
 }
