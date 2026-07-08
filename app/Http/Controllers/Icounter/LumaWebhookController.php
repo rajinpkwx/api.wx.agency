@@ -66,6 +66,9 @@ class LumaWebhookController extends Controller
         $webhookSignature = $request->header('webhook-signature');
 
         if (!$webhookId || !$webhookTimestamp || !$webhookSignature) {
+            \Log::warning('Icounter Luma webhook: missing webhook-* headers', [
+                'all_headers' => $request->headers->all(),
+            ]);
             return false;
         }
 
@@ -79,6 +82,16 @@ class LumaWebhookController extends Controller
                 return true;
             }
         }
+
+        // TEMP DEBUG — remove once signature issue is diagnosed.
+        \Log::warning('Icounter Luma webhook: signature mismatch', [
+            'webhook_id'        => $webhookId,
+            'webhook_timestamp' => $webhookTimestamp,
+            'webhook_signature' => $webhookSignature,
+            'expected_v1_sig'   => $expected,
+            'raw_body_length'   => strlen($rawBody),
+            'raw_body_preview'  => substr($rawBody, 0, 200),
+        ]);
 
         return false;
     }
