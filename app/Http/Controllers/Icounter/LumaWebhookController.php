@@ -46,9 +46,10 @@ class LumaWebhookController extends Controller
     }
 
     /**
-     * Luma signs webhooks the Svix way: headers svix-id, svix-timestamp,
-     * svix-signature; signed content is "{id}.{timestamp}.{body}"; secret
-     * is base64 after stripping the "whsec_" prefix.
+     * Luma signs webhooks per the Standard Webhooks spec: headers
+     * webhook-id, webhook-timestamp, webhook-signature; signed content is
+     * "{id}.{timestamp}.{body}"; secret is base64 after stripping the
+     * "whsec_" prefix.
      * Returns true/false when a secret is configured, null when no secret
      * is configured yet (unblocked for initial setup, still fully logged).
      */
@@ -60,36 +61,24 @@ class LumaWebhookController extends Controller
             return null;
         }
 
-        $svixId        = $request->header('svix-id');
-        $svixTimestamp = $request->header('svix-timestamp');
-        $svixSignature = $request->header('svix-signature');
+        $webhookId        = $request->header('webhook-id');
+        $webhookTimestamp = $request->header('webhook-timestamp');
+        $webhookSignature = $request->header('webhook-signature');
 
-        if (!$svixId || !$svixTimestamp || !$svixSignature) {
-            // TEMP DEBUG — remove once signature issue is diagnosed.
-            \Log::warning('Icounter Luma webhook: missing svix headers', [
-                'all_headers' => $request->headers->all(),
-            ]);
+        if (!$webhookId || !$webhookTimestamp || !$webhookSignature) {
             return false;
         }
 
         $secretKey = base64_decode(preg_replace('/^whsec_/', '', $secret));
-        $signedContent = "{$svixId}.{$svixTimestamp}.{$rawBody}";
+        $signedContent = "{$webhookId}.{$webhookTimestamp}.{$rawBody}";
         $expected = base64_encode(hash_hmac('sha256', $signedContent, $secretKey, true));
 
-        foreach (explode(' ', $svixSignature) as $part) {
+        foreach (explode(' ', $webhookSignature) as $part) {
             [$version, $sig] = array_pad(explode(',', $part, 2), 2, null);
             if ($version === 'v1' && $sig && hash_equals($expected, $sig)) {
                 return true;
             }
         }
-
-        // TEMP DEBUG — remove once signature issue is diagnosed.
-        \Log::warning('Icounter Luma webhook: signature mismatch', [
-            'svix_id'          => $svixId,
-            'svix_timestamp'   => $svixTimestamp,
-            'svix_signature'   => $svixSignature,
-            'expected_v1_sig'  => $expected,
-        ]);
 
         return false;
     }
