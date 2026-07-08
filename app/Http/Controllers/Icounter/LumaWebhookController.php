@@ -61,55 +61,42 @@ class LumaWebhookController extends Controller
             return null;
         }
 
-        $webhookId        = $request->header('webhook-id');
-        $webhookTimestamp = $request->header('webhook-timestamp');
         $webhookSignature = $request->header('webhook-signature');
 
-        if (!$webhookId || !$webhookTimestamp || !$webhookSignature) {
-            \Log::warning('Icounter Luma webhook: missing webhook-* headers', [
+        if (!$webhookSignature) {
+            \Log::warning('Icounter Luma webhook: missing webhook-signature header', [
                 'all_headers' => $request->headers->all(),
             ]);
             return false;
         }
 
-        // Luma's signature header is Stripe-style: "t=<timestamp>,v1=<hexsig>"
-        // — comma-separated key=value pairs, hex digest (not Svix's
-        // space-separated "v1,<base64sig>" format).
+        // Per Luma's docs: header is "t=<timestamp>,v1=<hexsig>". Signed
+        // payload is "{timestamp}.{raw_body}" — HMAC-SHA256 using the full
+        // whsec_ secret string as-is (not stripped, not base64-decoded).
         $parts = [];
         foreach (explode(',', $webhookSignature) as $pair) {
             [$key, $value] = array_pad(explode('=', $pair, 2), 2, null);
             $parts[$key] = $value;
         }
 
-        $timestamp     = $parts['t'] ?? $webhookTimestamp;
-        $receivedSigs  = array_filter($parts, fn ($v, $k) => $k === 'v1', ARRAY_FILTER_USE_BOTH);
-        $strippedSecret = preg_replace('/^whsec_/', '', $secret);
+        $timestamp = $parts['t'] ?? null;
+        $received  = $parts['v1'] ?? null;
 
-        // Try the two most likely secret encodings against the two most
-        // likely signed-content shapes until a real delivery confirms which
-        // combination is correct.
-        $candidates = [
-            hash_hmac('sha256', "{$webhookId}.{$timestamp}.{$rawBody}", $strippedSecret),
-            hash_hmac('sha256', "{$timestamp}.{$rawBody}", $strippedSecret),
-            hash_hmac('sha256', "{$webhookId}.{$timestamp}.{$rawBody}", base64_decode($strippedSecret)),
-            hash_hmac('sha256', "{$timestamp}.{$rawBody}", base64_decode($strippedSecret)),
-        ];
-
-        foreach ($receivedSigs as $sig) {
-            foreach ($candidates as $candidate) {
-                if ($sig && hash_equals($candidate, $sig)) {
-                    return true;
-                }
-            }
+        if (!$timestamp || !$received) {
+            return false;
         }
 
-        // TEMP DEBUG — remove once signature issue is diagnosed.
+        $expected = hash_hmac('sha256', "{$timestamp}.{$rawBody}", $secret);
+
+        if (hash_equals($expected, $received)) {
+            return true;
+        }
+
         \Log::warning('Icounter Luma webhook: signature mismatch', [
-            'webhook_id'         => $webhookId,
-            'timestamp'          => $timestamp,
-            'received_sigs'      => array_values($receivedSigs),
-            'candidate_hashes'   => $candidates,
-            'raw_body_length'    => strlen($rawBody),
+            'timestamp'        => $timestamp,
+            'received_sig'     => $received,
+            'expected_sig'     => $expected,
+            'raw_body_length'  => strlen($rawBody),
         ]);
 
         return false;
@@ -134,8 +121,8 @@ class LumaWebhookController extends Controller
             'signature_valid'     => $signatureValid,
             'source_ip'           => $request->ip(),
             'email'               => $data['user_email'] ?? null,
-            'first_name'          => $data['user_first_name'] ?: null,
-            'last_name'           => $data['user_last_name'] ?: null,
+            'first_name'          => ($data['user_first_name'] ?? null) ?: null,
+            'last_name'           => ($data['user_last_name'] ?? null) ?: null,
             'company'             => $this->answer($data, 'company'),
             'job_title'           => $this->answer($data, 'job title') ?? $this->answer($data, 'title'),
             'phone'               => $data['phone_number'] ?? null,
