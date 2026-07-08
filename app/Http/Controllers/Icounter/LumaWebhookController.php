@@ -65,6 +65,10 @@ class LumaWebhookController extends Controller
         $svixSignature = $request->header('svix-signature');
 
         if (!$svixId || !$svixTimestamp || !$svixSignature) {
+            // TEMP DEBUG — remove once signature issue is diagnosed.
+            \Log::warning('Icounter Luma webhook: missing svix headers', [
+                'all_headers' => $request->headers->all(),
+            ]);
             return false;
         }
 
@@ -78,6 +82,14 @@ class LumaWebhookController extends Controller
                 return true;
             }
         }
+
+        // TEMP DEBUG — remove once signature issue is diagnosed.
+        \Log::warning('Icounter Luma webhook: signature mismatch', [
+            'svix_id'          => $svixId,
+            'svix_timestamp'   => $svixTimestamp,
+            'svix_signature'   => $svixSignature,
+            'expected_v1_sig'  => $expected,
+        ]);
 
         return false;
     }
