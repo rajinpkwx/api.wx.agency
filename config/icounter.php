@@ -19,6 +19,9 @@ return [
 
     'hubspot' => [
         'token' => env('ICOUNTER_HUBSPOT_TOKEN'),
+        // Arbitrary identifier for this integration's events namespace in
+        // HubSpot's Marketing Events object — not a real HubSpot account id.
+        'marketing_events_account_id' => env('ICOUNTER_HUBSPOT_MARKETING_EVENTS_ACCOUNT_ID', 'icounter-luma'),
     ],
 
 ];
