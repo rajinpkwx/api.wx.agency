@@ -72,25 +72,44 @@ class LumaWebhookController extends Controller
             return false;
         }
 
-        $secretKey = base64_decode(preg_replace('/^whsec_/', '', $secret));
-        $signedContent = "{$webhookId}.{$webhookTimestamp}.{$rawBody}";
-        $expected = base64_encode(hash_hmac('sha256', $signedContent, $secretKey, true));
+        // Luma's signature header is Stripe-style: "t=<timestamp>,v1=<hexsig>"
+        // — comma-separated key=value pairs, hex digest (not Svix's
+        // space-separated "v1,<base64sig>" format).
+        $parts = [];
+        foreach (explode(',', $webhookSignature) as $pair) {
+            [$key, $value] = array_pad(explode('=', $pair, 2), 2, null);
+            $parts[$key] = $value;
+        }
 
-        foreach (explode(' ', $webhookSignature) as $part) {
-            [$version, $sig] = array_pad(explode(',', $part, 2), 2, null);
-            if ($version === 'v1' && $sig && hash_equals($expected, $sig)) {
-                return true;
+        $timestamp     = $parts['t'] ?? $webhookTimestamp;
+        $receivedSigs  = array_filter($parts, fn ($v, $k) => $k === 'v1', ARRAY_FILTER_USE_BOTH);
+        $strippedSecret = preg_replace('/^whsec_/', '', $secret);
+
+        // Try the two most likely secret encodings against the two most
+        // likely signed-content shapes until a real delivery confirms which
+        // combination is correct.
+        $candidates = [
+            hash_hmac('sha256', "{$webhookId}.{$timestamp}.{$rawBody}", $strippedSecret),
+            hash_hmac('sha256', "{$timestamp}.{$rawBody}", $strippedSecret),
+            hash_hmac('sha256', "{$webhookId}.{$timestamp}.{$rawBody}", base64_decode($strippedSecret)),
+            hash_hmac('sha256', "{$timestamp}.{$rawBody}", base64_decode($strippedSecret)),
+        ];
+
+        foreach ($receivedSigs as $sig) {
+            foreach ($candidates as $candidate) {
+                if ($sig && hash_equals($candidate, $sig)) {
+                    return true;
+                }
             }
         }
 
         // TEMP DEBUG — remove once signature issue is diagnosed.
         \Log::warning('Icounter Luma webhook: signature mismatch', [
-            'webhook_id'        => $webhookId,
-            'webhook_timestamp' => $webhookTimestamp,
-            'webhook_signature' => $webhookSignature,
-            'expected_v1_sig'   => $expected,
-            'raw_body_length'   => strlen($rawBody),
-            'raw_body_preview'  => substr($rawBody, 0, 200),
+            'webhook_id'         => $webhookId,
+            'timestamp'          => $timestamp,
+            'received_sigs'      => array_values($receivedSigs),
+            'candidate_hashes'   => $candidates,
+            'raw_body_length'    => strlen($rawBody),
         ]);
 
         return false;
