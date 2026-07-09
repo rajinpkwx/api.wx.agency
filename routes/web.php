@@ -37,4 +37,7 @@ Route::get('userback/test-push/{id}', [App\Http\Controllers\Userback\WebhookCont
 
 /* Icounter (Luma -> HubSpot) */
 Route::post('icounter/luma/webhook', [App\Http\Controllers\Icounter\LumaWebhookController::class, 'receive'])->name('icounter.luma.webhook');
+Route::post('icounter/luma/import', [App\Http\Controllers\Icounter\LumaAdminController::class, 'import'])->name('icounter.luma.import');
+Route::post('icounter/luma/import-all', [App\Http\Controllers\Icounter\LumaAdminController::class, 'importAll'])->name('icounter.luma.import-all');
+Route::post('icounter/luma/push', [App\Http\Controllers\Icounter\LumaAdminController::class, 'push'])->name('icounter.luma.push');
 /* Icounter -end */

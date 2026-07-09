@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Icounter;
 use App\Http\Controllers\Controller;
 use App\Jobs\Icounter\SyncLumaRegistrationToHubspot;
 use App\Models\Icounter\LumaRegistration;
+use App\Service\Icounter\LumaGuestMapper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -112,24 +113,14 @@ class LumaWebhookController extends Controller
         $data  = $payload['data'] ?? $payload;
         $event = $data['event'] ?? [];
 
-        $guestId = $data['api_id'] ?? $data['id'] ?? null;
+        $guestId = LumaGuestMapper::guestId($data);
 
-        $attributes = [
-            'luma_event_id'       => $event['api_id'] ?? $event['id'] ?? null,
-            'luma_event_name'     => $event['name'] ?? null,
-            'webhook_event_type'  => $payload['type'] ?? null,
-            'signature_valid'     => $signatureValid,
-            'source_ip'           => $request->ip(),
-            'email'               => $data['user_email'] ?? null,
-            'first_name'          => ($data['user_first_name'] ?? null) ?: null,
-            'last_name'           => ($data['user_last_name'] ?? null) ?: null,
-            'company'             => $this->answer($data, 'company'),
-            'job_title'           => $this->answer($data, 'job title') ?? $this->answer($data, 'title'),
-            'phone'               => $data['phone_number'] ?? null,
-            'status'              => $this->resolveStatus($data),
-            'registration_date'   => $data['registered_at'] ?? $data['created_at'] ?? null,
-            'raw_payload'         => json_encode($payload),
-            'raw'                 => $rawBody,
+        $attributes = LumaGuestMapper::toAttributes($data, $event) + [
+            'webhook_event_type' => $payload['type'] ?? null,
+            'signature_valid'    => $signatureValid,
+            'source_ip'          => $request->ip(),
+            'raw_payload'        => json_encode($payload),
+            'raw'                => $rawBody,
         ];
 
         // No guest id (malformed/unexpected payload) — still log it, just
@@ -143,46 +134,5 @@ class LumaWebhookController extends Controller
             ['luma_guest_id' => $guestId],
             $attributes
         );
-    }
-
-    /**
-     * Luma's registration_status/type/checked_in_at combo maps to our
-     * normalized status: registered, attended, cancelled, no_show.
-     */
-    private function resolveStatus(array $data): ?string
-    {
-        if (!empty($data['checked_in_at'])) {
-            return 'attended';
-        }
-
-        $approval = $data['approval_status'] ?? null;
-
-        if ($approval === 'declined') {
-            return 'cancelled';
-        }
-
-        if ($approval === 'approved' || $approval === 'pending_approval') {
-            return 'registered';
-        }
-
-        return $approval;
-    }
-
-    /**
-     * Custom questions come back in registration_answers as a list of
-     * {question/label, answer} pairs — Luma has no dedicated company/job
-     * title fields, so pull them from there when the host has that question
-     * enabled on the event.
-     */
-    private function answer(array $data, string $labelContains): ?string
-    {
-        foreach ($data['registration_answers'] ?? [] as $item) {
-            $label = strtolower($item['question'] ?? $item['label'] ?? '');
-            if (strpos($label, $labelContains) !== false) {
-                return $item['answer'] ?? null;
-            }
-        }
-
-        return null;
     }
 }
