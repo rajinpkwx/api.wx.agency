@@ -126,16 +126,23 @@ class HubspotClient
     /**
      * Record a contact's participation state for a marketing event by email.
      * $subscriberState is one of: register, attend, cancel.
+     *
+     * HubSpot's own docs: this call is idempotent ONLY when both the
+     * contact id/email AND interactionDateTime are unchanged between calls
+     * — a fresh timestamp on every call (e.g. now()) makes every retry or
+     * re-sync create a brand new attendee entry instead of being a no-op.
+     * Callers must pass a stable timestamp (e.g. the Luma registration
+     * date), never "now".
      */
-    public function upsertMarketingEventAttendance(string $externalEventId, string $email, string $subscriberState): void
+    public function upsertMarketingEventAttendance(string $externalEventId, string $email, string $subscriberState, int $interactionDateTimeMs): void
     {
         $this->client->post("/marketing/v3/marketing-events/attendance/{$externalEventId}/{$subscriberState}/email-create", [
             'query' => ['externalAccountId' => config('icounter.hubspot.marketing_events_account_id')],
             'json'  => [
                 'inputs' => [
                     [
-                        'email'                => $email,
-                        'interactionDateTime'  => now()->getTimestampMs(),
+                        'email'               => $email,
+                        'interactionDateTime' => $interactionDateTimeMs,
                     ],
                 ],
             ],

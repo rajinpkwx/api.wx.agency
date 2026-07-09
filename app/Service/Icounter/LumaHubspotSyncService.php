@@ -36,16 +36,21 @@ class LumaHubspotSyncService
                     optional($registration->registration_date)->toIso8601String()
                 );
 
-                // The attendance endpoint is append-only, not idempotent
-                // like the contact upsert — calling it again with the same
-                // state creates a second "registration" entry for the same
-                // person in HubSpot's UI. Only record it when the status
-                // has actually changed since the last successful sync.
+                // The attendance endpoint is only idempotent when both the
+                // contact and interactionDateTime are unchanged between
+                // calls — so this must be a stable value, never now(), or
+                // every retry/re-sync creates a duplicate attendee entry.
+                // Skipping on an unchanged status is a second guard on top
+                // of that, avoiding the API call entirely when nothing
+                // actually changed.
                 if ($registration->last_status_synced !== $registration->status) {
+                    $interactionTime = $registration->registration_date ?? $registration->created_at;
+
                     $this->hubspot->upsertMarketingEventAttendance(
                         $registration->luma_event_id,
                         $registration->email,
-                        $this->marketingEventState($registration->status)
+                        $this->marketingEventState($registration->status),
+                        $interactionTime->getTimestampMs()
                     );
                 }
 
